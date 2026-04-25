@@ -10,12 +10,11 @@
         body { font-family: 'Segoe UI', sans-serif; background: #fce4ec; text-align: center; margin: 0; padding: 20px; color: #444; }
         .container { background: white; max-width: 500px; margin: 10px auto; padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 2px solid #f06292; position: relative; }
         
-        /* LOGO STYLE - Circle & Transparent (Gaya ng Customer Page) */
         .admin-logo { 
             max-width: 120px; 
             margin: -10px auto 10px auto; 
             display: block; 
-            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1)); /* Nagdagdag ng shadow para lumitaw */
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
         }
         
         h2 { color: #d81b60; margin: 5px 0; font-size: 20px; }
@@ -38,7 +37,7 @@
         @keyframes popIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
         
         .order-id-tag { background: #ff9800; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
-        .receipt-card { background: #fff; border: 1px dashed #aaa; padding: 15px; margin-bottom: 10px; text-align: left; font-family: 'Courier New', monospace; font-size: 12px; }
+        .receipt-card { background: #fff; border: 1px dashed #aaa; padding: 15px; margin-bottom: 10px; text-align: left; font-family: 'Courier New', monospace; font-size: 11px; }
         
         .hidden { display: none; }
         .disabled-box { opacity: 0.3; pointer-events: none; background: #eee !important; }
@@ -131,13 +130,13 @@
             <button onclick="location.reload()" style="background:#757575;">Logout Admin</button>
         </div>
 
-        <div class="container" style="background:#fff9c4; border: 2px solid #fbc02d;">
+        <div class="container" style="background:#fffbe6; border: 2px solid #fbc02d;">
             <h3>🔔 ONLINE ORDERS (REAL-TIME)</h3>
             <div id="orderHistory">Waiting for orders...</div>
         </div>
 
         <div class="container" style="background:#e3f2fd; border: 2px solid #2196f3;">
-            <h3>📋 SALES HISTORY</h3>
+            <h3>📋 SALES HISTORY (WALK-IN & ONLINE)</h3>
             <div class="filter-section">
                 <label>Filter by Date:</label>
                 <input type="date" id="filterDate" onchange="renderReceipts()">
@@ -150,7 +149,6 @@
     <audio id="notifSound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3"></audio>
 
     <script>
-        // FIREBASE CONFIG (Sinasiguro nitong naka-connect sa Database mo)
         const firebaseConfig = { databaseURL: "https://inday-lyking-pos-default-rtdb.firebaseio.com/" };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
@@ -168,7 +166,7 @@
             document.getElementById(p).classList.remove("hidden");
         }
 
-        // --- AUTHENTICATION (LocalStorage) ---
+        // --- AUTH ---
         function signup() {
             let users = JSON.parse(localStorage.getItem("users")) || [];
             if(!signupEmail.value || !signupPass.value) return alert("Paki-fill up lahat!");
@@ -184,7 +182,7 @@
             } else alert("Maling Username o Password!");
         }
 
-        // --- POS FUNCTIONS ---
+        // --- POS ---
         function updateRules() {
             let val = pkgSelect.value.split("-");
             limit = parseInt(val[1]); type = val[2];
@@ -195,11 +193,9 @@
         }
 
         document.addEventListener('change', function(e) {
-            if(e.target.classList.contains('flavor-cb')) {
-                if(document.querySelectorAll('.flavor-cb:checked').length > limit) { alert(`Limit ${limit} lang po!`); e.target.checked = false; }
-            }
-            if(e.target.classList.contains('top-cb')) {
-                if(document.querySelectorAll('.top-cb:checked').length > limit) { alert(`Limit ${limit} lang po!`); e.target.checked = false; }
+            if(e.target.classList.contains('flavor-cb') || e.target.classList.contains('top-cb')) {
+                let count = e.target.classList.contains('flavor-cb') ? document.querySelectorAll('.flavor-cb:checked').length : document.querySelectorAll('.top-cb:checked').length;
+                if(count > limit) { alert(`Limit ${limit} lang po!`); e.target.checked = false; }
             }
         });
 
@@ -240,7 +236,7 @@
 
             let now = new Date();
             saveReceipt({
-                customer: custName.value || "Walk-in",
+                customer: (custName.value || "Walk-in") + " (Walk-in)",
                 type: orderType.value,
                 items: cart.map(i => `${i.item} (${i.details})`).join("<br>"),
                 total: "₱" + grandTotal,
@@ -254,7 +250,7 @@
             cart = []; grandTotal = 0; document.getElementById("cashInput").value = ""; custName.value = ""; renderCart();
         }
 
-        // --- SALES HISTORY (LocalStorage) ---
+        // --- SALES LOGIC ---
         function saveReceipt(data) {
             let history = JSON.parse(localStorage.getItem("sales_history")) || [];
             history.unshift(data);
@@ -268,52 +264,67 @@
             let filtered = history.filter(h => h.fullDate === filter);
             
             document.getElementById("receiptHistory").innerHTML = filtered.length > 0 ? filtered.map(h => `
-                <div class="receipt-card">
-                    <b style="color:#d81b60;">${h.customer} (${h.type})</b><br>
+                <div class="receipt-card" style="border-left: 5px solid ${h.customer.includes('Online') ? '#ffc107' : '#e91e63'};">
+                    <b>${h.customer}</b> | <span>${h.type}</span><br>
                     <small>${h.fullDate} | ${h.time}</small><br>
                     <hr style="border:0; border-top:1px dashed #ccc;">
                     ${h.items}<br>
                     <b>TOTAL: ${h.total}</b><br>
-                    <small>CASH: ${h.cash} | CHANGE: ${h.change}</small>
-                </div>`).join("") : "<i>No records.</i>";
+                    <small>STATUS: ${h.cash === "Paid Online" ? "PAID (GCASH/COD)" : "CASH: "+h.cash}</small>
+                </div>`).join("") : "<i>No records for this date.</i>";
         }
 
         function clearSales() { if(confirm("Mabubura lahat ng sales history. Sure ka?")) { localStorage.removeItem("sales_history"); renderReceipts(); } }
 
-        // --- REAL-TIME ONLINE ORDERS (Firebase) ---
+        // --- FIREBASE ONLINE ORDERS ---
         function listenToOnlineOrders() {
             db.ref("orders").on("value", (snap) => {
                 let orders = snap.val();
                 if (orders) document.getElementById("notifSound").play().catch(() => {});
                 
-                orderHistory.innerHTML = orders ? "" : "No pending orders.";
+                orderHistory.innerHTML = orders ? "" : "No pending online orders.";
                 for(let id in orders) {
                     let o = orders[id];
-                    let displayItems = o.items ? o.items : `${o.package} (${o.flavors} | ${o.toppings})`;
+                    let displayItems = o.items ? o.items : "No Details";
                     let orderID = o.orderID ? `<span class="order-id-tag">${o.orderID}</span>` : "";
 
                     orderHistory.innerHTML += `
                         <div class="order-card">
-                            ${orderID} <b>${o.customer}</b><br>
-                            <small>📞 ${o.phone || 'No Phone'}</small><br>
-                            📍 ${o.address || 'No Address'}<br>
+                            ${orderID} <b>${o.customer} (Online)</b><br>
+                            <small>📞 ${o.phone || ''} | 📍 ${o.address || ''}</small>
                             <hr style="border:0; border-top:1px solid #ddd;">
-                            ${displayItems}<br>
-                            <b>Total: ${o.total}</b> | Payment: <i>${o.payment || 'N/A'}</i><br>
+                            <div style="font-size:12px;">${displayItems}</div>
+                            <b>Total: ${o.total}</b> | Pay: <i>${o.payment || 'N/A'}</i><br>
                             <button onclick="paidOnline('${id}')" style="background:green; margin-top:10px;">ORDER COMPLETED</button>
                         </div>`;
                 }
             });
         }
 
+        // DITO ANG PAG-SAVE NG ONLINE ORDER SA HISTORY
         function paidOnline(id) {
+            if(!confirm("Mark this online order as Completed and save to Sales History?")) return;
+
             db.ref("orders/"+id).once("value", s => {
                 let o = s.val();
                 if(!o) return;
+
                 let now = new Date();
-                let displayItems = o.items ? o.items : `${o.package} (${o.flavors} | ${o.toppings})`;
-                saveReceipt({ customer: o.customer + " (Online)", type: o.payment || "Online", items: displayItems, total: o.total, cash: "Paid Online", change: "0.00", fullDate: now.toISOString().split('T')[0], time: now.toLocaleTimeString() });
+                // Sine-save dito sa Sales History ang Online Order
+                saveReceipt({ 
+                    customer: o.customer + " (Online)", 
+                    type: o.payment || "Online", 
+                    items: o.items || "Package Order", 
+                    total: o.total, 
+                    cash: "Paid Online", 
+                    change: "0.00", 
+                    fullDate: now.toISOString().split('T')[0], 
+                    time: now.toLocaleTimeString() 
+                });
+
+                // Pagkatapos ma-save, burahin na sa Firebase Pending Orders
                 db.ref("orders/"+id).remove();
+                alert("Order moved to Sales History!");
             });
         }
     </script>
